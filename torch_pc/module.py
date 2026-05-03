@@ -1,5 +1,8 @@
 # Based on concepts from Monadillo (MIT License)
 # Source: https://github.com/Monadillo/pcn-intro/blob/main/pcn_cifar10_notebook.ipynb
+
+from pathlib import Path
+
 import torch
 import torch.nn as nn
 from torch.amp import autocast
@@ -85,6 +88,31 @@ class PCNetwork(nn.Module):
         ])
         self.readout = nn.Linear(dims[-1], output_dim, bias=False)
 
+
+    @staticmethod
+    def load(fp: Path, device=None):
+
+        if device:
+            checkpoint = torch.load(fp, map_location=device)
+        else:
+            checkpoint = torch.load(fp)
+
+        model = PCNetwork(
+            dims=checkpoint["dims"],
+            output_dim=checkpoint["output_dim"],
+        )
+        model.load_state_dict(checkpoint["state_dict"])
+        return model
+    
+    
+    def save(self, fp: Path):
+        torch.save({
+            "dims": self.dims,
+            "output_dim": self.readout.out_features,
+            "state_dict": self.state_dict(),
+        }, fp)
+
+    
     def init_latents(self, batch_size: int, device: torch.device) -> list[torch.Tensor]:
         """Initialise latent variables X^(1), ..., X^(L) as standard normals.
 

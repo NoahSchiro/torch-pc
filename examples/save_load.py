@@ -20,12 +20,12 @@ from torch_pc import (
     test_pcn,
 )
 
-BATCH_SIZE  = 256  # best: 256
-EPOCHS      = 4    # best: 4
-ETA_INFER   = 0.1  # best: 0.1
-ETA_LEARN   = 0.01 # best: 0.01
-INFER_STEPS = 80   # best: 80
-T_LEARN     = 3    # best: 3
+BATCH_SIZE  = 256
+EPOCHS      = 2
+ETA_INFER   = 0.1
+ETA_LEARN   = 0.02
+INFER_STEPS = 80
+T_LEARN     = 3
 DEVICE      = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 transform = transforms.Compose([
@@ -51,7 +51,7 @@ def save(fp: Path):
         pin_memory=True,
     )
     model = PCNetwork(
-        dims=[784, 500, 200, 10],
+        dims=[784, 1000, 500, 100],
         output_dim=10,
     )
 
@@ -70,11 +70,7 @@ def save(fp: Path):
     )
     print("Training finished.")
 
-    torch.save({
-        "dims": model.dims,
-        "output_dim": model.readout.out_features,
-        "state_dict": model.state_dict(),
-    }, fp)
+    model.save(fp)
     print("Model saved")
 
 def load(fp: Path):
@@ -92,12 +88,7 @@ def load(fp: Path):
         pin_memory=True,
         prefetch_factor=2
     )
-    checkpoint = torch.load(fp, map_location=DEVICE)
-    model = PCNetwork(
-        dims=checkpoint["dims"],
-        output_dim=checkpoint["output_dim"],
-    )
-    model.load_state_dict(checkpoint["state_dict"])
+    model = PCNetwork.load(fp, DEVICE)
     acc1, acc3 = test_pcn(
         model=model,
         data_loader=test_dl,
