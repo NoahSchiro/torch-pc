@@ -5,6 +5,8 @@ Trains a three-layer PCN on CIFAR-10 and reports Top-1 / Top-3 accuracy.
 Energy trajectories are visualised interactively with Plotly.
 """
 
+import os
+
 import torch
 import torchvision
 import torchvision.transforms as transforms
@@ -34,12 +36,35 @@ transform = transforms.Compose([
     ),
 ])
 
-trainset = torchvision.datasets.CIFAR10(root="./data", train=True,  download=True, transform=transform)
-testset  = torchvision.datasets.CIFAR10(root="./data", train=False, download=True, transform=transform)
+trainset = torchvision.datasets.CIFAR10(
+    root="./data",
+    train=True,
+    download=True,
+    transform=transform
+)
+testset = torchvision.datasets.CIFAR10(
+    root="./data",
+    train=False,
+    download=True,
+    transform=transform
+)
 
-loader_kwargs = dict(batch_size=BATCH_SIZE, num_workers=10, pin_memory=True, prefetch_factor=2)
-trainloader = DataLoader(trainset, shuffle=True,  **loader_kwargs)
-testloader  = DataLoader(testset,  shuffle=False, **loader_kwargs)
+trainloader = DataLoader(
+    trainset,
+    shuffle=True,
+    batch_size=BATCH_SIZE,
+    num_workers=os.cpu_count(),
+    pin_memory=True,
+    prefetch_factor=2
+)
+testloader = DataLoader(
+    testset,
+    shuffle=False,
+    batch_size=BATCH_SIZE,
+    num_workers=os.cpu_count(),
+    pin_memory=True,
+    prefetch_factor=2
+)
 
 # Define model
 model = PCNetwork(
@@ -74,16 +99,3 @@ acc1, acc3 = test_pcn(
 )
 print(f"Test Top-1 Accuracy: {acc1 * 100:.2f}%")
 print(f"Test Top-3 Accuracy: {acc3 * 100:.2f}%")
-
-# Plot
-
-# plot_energy_history(energy_history, T_infer, T_learn)
-# plot_energy_history(
-#     supervised_energy_history, T_infer, T_learn,
-#     title="Batch-Averaged Supervised Energy Trajectories",
-# )
-# plot_epoch_avg_energy(energy_history, T_infer, T_learn)
-# plot_epoch_avg_energy(
-#     supervised_energy_history, T_infer, T_learn,
-#     title="Batch-Averaged Supervised Energy Trajectories (Mean ± 1-std)",
-# )

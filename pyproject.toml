@@ -7,8 +7,10 @@ requires-python = ">=3.10"
 dependencies = [
     "torch>=2.0",
     "torchvision>=0.21.0",
+    "tqdm>=4.67.3",
 ]
 
+# This is the version of pytorch I need to work with my cuda card
 [[tool.uv.index]]
 name = "pytorch-cu124"
 url = "https://download.pytorch.org/whl/cu124"
@@ -18,3 +20,7 @@ explicit = true
 torch = { index = "pytorch-cu124" }
 torchvision = { index = "pytorch-cu124" }
 torchaudio = { index = "pytorch-cu124" }
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
