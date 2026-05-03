@@ -20,59 +20,54 @@ from torch_pc import (
     test_pcn,
 )
 
-# Hyperparameters
-BATCH_SIZE = 500
-num_epochs = 4
-eta_infer  = 0.05
-eta_learn  = 0.005
-T_infer    = 50
-T_learn    = BATCH_SIZE
-device     = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+BATCH_SIZE  = 256  # best: 256
+EPOCHS      = 4    # best: 4
+ETA_INFER   = 0.1  # best: 0.1
+ETA_LEARN   = 0.01 # best: 0.01
+INFER_STEPS = 80   # best: 80
+T_LEARN     = 3    # best: 3
+DEVICE      = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# Get data
 transform = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize(
-        (0.4914, 0.4822, 0.4465),
-        (0.2470, 0.2435, 0.2616),
+        (0.1307,),
+        (0.3081,),
     ),
 ])
 
 def save(fp: Path):
-    trainset = torchvision.datasets.CIFAR10(
+    train_ds = torchvision.datasets.MNIST(
         root="./data",
         train=True,
         download=True,
         transform=transform
     )
-
-    trainloader = DataLoader(
-        trainset,
+    train_dl = DataLoader(
+        train_ds,
         shuffle=True,
         batch_size=BATCH_SIZE,
         num_workers=os.cpu_count(),
         pin_memory=True,
-        prefetch_factor=2
     )
     model = PCNetwork(
-        dims=[3072, 1000, 500, 10],
+        dims=[784, 500, 200, 10],
         output_dim=10,
     )
 
-    print(f"Using device: {device}")
+    # Train
+    print(f"Using device: {DEVICE}")
     print("Starting PCN training...")
-
     _ = train_pcn(
         model=model,
-        data_loader=trainloader,
-        num_epochs=num_epochs,
-        eta_infer=eta_infer,
-        eta_learn=eta_learn,
-        T_infer=T_infer,
-        T_learn=T_learn,
-        device=device,
+        data_loader=train_dl,
+        num_epochs=EPOCHS,
+        eta_infer=ETA_INFER,
+        eta_learn=ETA_LEARN,
+        T_infer=INFER_STEPS,
+        T_learn=T_LEARN,
+        device=DEVICE,
     )
-
     print("Training finished.")
 
     torch.save({
@@ -83,21 +78,21 @@ def save(fp: Path):
     print("Model saved")
 
 def load(fp: Path):
-    testset = torchvision.datasets.CIFAR10(
+    test_ds  = torchvision.datasets.MNIST(
         root="./data",
         train=False,
         download=True,
         transform=transform
     )
-    testloader = DataLoader(
-        testset,
+    test_dl = DataLoader(
+        test_ds,
         shuffle=False,
         batch_size=BATCH_SIZE,
         num_workers=os.cpu_count(),
         pin_memory=True,
         prefetch_factor=2
     )
-    checkpoint = torch.load(fp, map_location=device)
+    checkpoint = torch.load(fp, map_location=DEVICE)
     model = PCNetwork(
         dims=checkpoint["dims"],
         output_dim=checkpoint["output_dim"],
@@ -105,10 +100,10 @@ def load(fp: Path):
     model.load_state_dict(checkpoint["state_dict"])
     acc1, acc3 = test_pcn(
         model=model,
-        data_loader=testloader,
-        T_infer=T_infer,
-        eta_infer=eta_infer,
-        device=device,
+        data_loader=test_dl,
+        T_infer=INFER_STEPS,
+        eta_infer=ETA_INFER,
+        device=DEVICE,
     )
     print(f"Test Top-1 Accuracy: {acc1 * 100:.2f}%")
     print(f"Test Top-3 Accuracy: {acc3 * 100:.2f}%")
