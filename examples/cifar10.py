@@ -19,13 +19,13 @@ from torch_pc import (
 )
 
 # Hyperparameters
-BATCH_SIZE = 500
-num_epochs = 4
-eta_infer  = 0.05
-eta_learn  = 0.005
-T_infer    = 50
-T_learn    = BATCH_SIZE
-device     = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+BATCH_SIZE  = 500
+EPOCHS      = 4
+ETA_INFER   = 0.05
+ETA_LEARN   = 0.005
+INFER_STEPS = 50
+T_LEARN     = BATCH_SIZE
+DEVICE      = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Get data
 transform = transforms.Compose([
@@ -73,17 +73,17 @@ model = PCNetwork(
 )
 
 # Train
-print(f"Using device: {device}")
+print(f"Using device: {DEVICE}")
 print("Starting PCN training...")
 
 energy_history, supervised_energy_history = train_pcn(
     model=model,
     data_loader=trainloader,
-    num_epochs=num_epochs,
-    eta_infer=eta_infer,
-    eta_learn=eta_learn,
-    T_infer=T_infer,
-    T_learn=T_learn,
+    num_epochs=EPOCHS,
+    eta_infer=ETA_INFER,
+    eta_learn=ETA_LEARN,
+    T_infer=INFER_STEPS,
+    T_learn=T_LEARN,
     device=device,
 )
 
@@ -93,9 +93,9 @@ print("Training finished.")
 acc1, acc3 = test_pcn(
     model=model,
     data_loader=testloader,
-    T_infer=T_infer,
-    eta_infer=eta_infer,
-    device=device,
+    T_infer=INFER_STEPS,
+    eta_infer=ETA_INFER,
+    device=DEVICE,
 )
 print(f"Test Top-1 Accuracy: {acc1 * 100:.2f}%")
 print(f"Test Top-3 Accuracy: {acc3 * 100:.2f}%")

@@ -15,15 +15,15 @@ def train_pcn(
     num_epochs: int,
     eta_infer: float,
     eta_learn: float,
-    T_infer: int,
+    infer_steps: int,
     T_learn: int,
     device: str | torch.device = "cuda",
 ) -> tuple[list, list]:
     """Train a PCNetwork on a supervised classification task.
 
     Each batch proceeds in two phases:
-      1. Inference: update latent variables X^(1), ..., X^(L) for T_infer
-         steps while weights and X^(0) remain fixed.
+      1. Inference: update latent variables X^(1), ..., X^(L) for
+         infer_steps while weights and X^(0) remain fixed.
       2. Learning: update all weights for T_learn steps while latents
          remain fixed at their inferred values.
 
@@ -36,7 +36,7 @@ def train_pcn(
         num_epochs: Number of full passes over the dataset.
         eta_infer: Step size for latent variable updates.
         eta_learn: Step size for weight updates.
-        T_infer: Number of inference steps per batch.
+        infer_steps: Number of inference steps per batch.
         T_learn: Number of learning steps per batch.
         device: Device to run training on.
 
@@ -77,7 +77,7 @@ def train_pcn(
 
             # Inference phase
             with torch.no_grad(), autocast(device_type="cuda"):
-                for _ in range(T_infer):
+                for _ in range(infer_steps):
                     for l in range(1, model.L + 1):
                         grad_Xl = errors_extended[l] - gain_modulated_errors[l - 1] @ weights[l - 1]
                         inputs_latents[l] -= eta_infer * grad_Xl
@@ -125,7 +125,7 @@ def train_pcn(
 def test_pcn(
     model: PCNetwork,
     data_loader: DataLoader,
-    T_infer: int,
+    infer_steps: int,
     eta_infer: float,
     device: str | torch.device = "cuda",
 ) -> tuple[float, float]:
@@ -137,7 +137,7 @@ def test_pcn(
     Args:
         model: Trained PCNetwork.
         data_loader: Yields (input, label) batches.
-        T_infer: Number of inference steps per batch.
+        infer_steps: Number of inference steps per batch.
         eta_infer: Step size for latent variable updates.
         device: Device to run evaluation on.
 
@@ -159,7 +159,7 @@ def test_pcn(
         weights = [layer.W for layer in model.layers] + [model.readout.weight]
 
         with autocast(device_type="cuda"):
-            for _ in range(T_infer):
+            for _ in range(infer_steps):
                 errors, gain_modulated_errors = model.compute_errors(inputs_latents)
                 y_hat = model.readout(inputs_latents[-1])
                 eps_sup = y_hat - y_onehot

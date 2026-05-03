@@ -64,7 +64,7 @@ def save(fp: Path):
         num_epochs=EPOCHS,
         eta_infer=ETA_INFER,
         eta_learn=ETA_LEARN,
-        T_infer=INFER_STEPS,
+        infer_steps=INFER_STEPS,
         T_learn=T_LEARN,
         device=DEVICE,
     )
@@ -101,7 +101,7 @@ def load(fp: Path):
     acc1, acc3 = test_pcn(
         model=model,
         data_loader=test_dl,
-        T_infer=INFER_STEPS,
+        infer_steps=INFER_STEPS,
         eta_infer=ETA_INFER,
         device=DEVICE,
     )
