@@ -10,19 +10,23 @@ import torch
 from torch.utils.data import DataLoader, TensorDataset
 from torch_pc import PCNetwork, train_pcn, test_pcn_regress
 
+# best:
+# mse: 0.0010
+# mae: 0.0244
+
 # Hyperparameters
-BATCH_SIZE  = 256
-EPOCHS      = 10
+BATCH_SIZE  = 512 
+EPOCHS      = 1 
 ETA_INFER   = 0.1
 ETA_LEARN   = 0.02
-INFER_STEPS = 80
-T_LEARN     = 3
+INFER_STEPS = 100
+T_LEARN     = 5
 DEVICE      = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def make_dataset(n: int) -> TensorDataset:
     x = torch.FloatTensor(n).uniform_(0, 2 * torch.pi)
-    x = x.unsqueeze(1)
     y = torch.sin(x)
+    x = x.unsqueeze(1)
     return TensorDataset(x, y)
 
 train_ds = make_dataset(50_000)
