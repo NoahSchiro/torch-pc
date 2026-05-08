@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 import torchvision
 import torchvision.transforms as transforms
 
-from torch_pc import PCNetwork, train_pcn, test_pcn
+from torch_pc import PCNetwork, train_pcn, test_pcn_classify
 
 # best top-1: 99.95%
 # best top-3: 100%
@@ -81,7 +81,7 @@ energy_history, supervised_energy_history = train_pcn(
 print("Training finished.")
 
 # Evaluate
-acc1, acc3 = test_pcn(
+acc1, acc3 = test_pcn_classify(
     model=model,
     data_loader=test_dl,
     infer_steps=INFER_STEPS,

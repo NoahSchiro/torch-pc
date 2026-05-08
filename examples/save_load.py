@@ -17,7 +17,7 @@ from torch.utils.data import DataLoader
 from torch_pc import (
     PCNetwork,
     train_pcn,
-    test_pcn,
+    test_pcn_classify,
 )
 
 BATCH_SIZE  = 256
@@ -89,7 +89,7 @@ def load(fp: Path):
         prefetch_factor=2
     )
     model = PCNetwork.load(fp, DEVICE)
-    acc1, acc3 = test_pcn(
+    acc1, acc3 = test_pcn_classify(
         model=model,
         data_loader=test_dl,
         infer_steps=INFER_STEPS,

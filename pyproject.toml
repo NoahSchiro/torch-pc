@@ -21,6 +21,9 @@ torch = { index = "pytorch-cu124" }
 torchvision = { index = "pytorch-cu124" }
 torchaudio = { index = "pytorch-cu124" }
 
+[tool.setuptools]
+packages = ["torch_pc"]
+
 [build-system]
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"

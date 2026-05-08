@@ -15,7 +15,7 @@ from torch.utils.data import DataLoader
 from torch_pc import (
     PCNetwork,
     train_pcn,
-    test_pcn,
+    test_pcn_classify,
 )
 
 # Hyperparameters
@@ -82,18 +82,18 @@ energy_history, supervised_energy_history = train_pcn(
     num_epochs=EPOCHS,
     eta_infer=ETA_INFER,
     eta_learn=ETA_LEARN,
-    T_infer=INFER_STEPS,
+    infer_steps=INFER_STEPS,
     T_learn=T_LEARN,
-    device=device,
+    device=DEVICE,
 )
 
 print("Training finished.")
 
 # Evaluate
-acc1, acc3 = test_pcn(
+acc1, acc3 = test_pcn_classify(
     model=model,
     data_loader=testloader,
-    T_infer=INFER_STEPS,
+    infer_steps=INFER_STEPS,
     eta_infer=ETA_INFER,
     device=DEVICE,
 )
