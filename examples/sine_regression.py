@@ -1,18 +1,19 @@
 """
 Sine wave regression with Predictive Coding Networks.
 
-Given a scalar input x sampled uniformly from [0, 2π],
+Given a scalar input x sampled uniformly from [0, 2*pi],
 predict sin(x).
+
+Experimentally, I was able to get:
+  MSE: 0.0010
+  MAE: 0.0244
+with the hyperparameters below.
 """
 import os
 
 import torch
 from torch.utils.data import DataLoader, TensorDataset
 from torch_pc import PCNetwork, train_pcn, test_pcn_regress
-
-# best:
-# mse: 0.0010
-# mae: 0.0244
 
 # Hyperparameters
 BATCH_SIZE  = 512 

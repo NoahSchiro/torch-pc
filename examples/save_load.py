@@ -1,8 +1,7 @@
 """
-Same as `cifar10.py` but demos saving and loading
+Same as `mnist.py` but demos saving and loading
 
-Trains a three-layer PCN on CIFAR-10 and reports Top-1 / Top-3 accuracy.
-Energy trajectories are visualised interactively with Plotly.
+Trains a three-layer PCN on MNIST and reports Top-1 / Top-3 accuracy.
 """
 
 import os
