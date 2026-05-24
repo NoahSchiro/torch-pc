@@ -6,8 +6,8 @@ Currently set up for simple supervised classification tasks. See `examples/cifar
 
 ## Planned features
 - [x] Export to and from pytorch models (partially supported, needs to be more tightly integrated into library)
-- [ ] Show how a model trained on classification can be used generatively
-- [ ] Support regression tasks
+- [x] Show how a model trained on classification can be used generatively
+- [x] Support regression tasks
 
 ## General TODO:
 - [x] Integrate save and load mechanism into `PCNetwork`
