@@ -11,4 +11,4 @@ Currently set up for simple supervised classification tasks. See `examples/cifar
 
 ## General TODO:
 - [x] Integrate save and load mechanism into `PCNetwork`
-- [ ] Models trained on backprop should be convertible to PC and vice versa
+- [x] Models trained on backprop should be convertible to PC and vice versa

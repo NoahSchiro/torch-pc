@@ -23,17 +23,24 @@ def train_pcn(
     device: str | torch.device = "cuda",
 ) -> tuple[list, list]:
     """Train a PCNetwork on a supervised task.
- 
+
     Each batch proceeds in two phases:
       1. Inference: update latent variables X^(1), ..., X^(L) for
-         infer_steps while weights and X^(0) remain fixed.
-      2. Learning: update all weights for T_learn steps while latents
-         remain fixed at their inferred values.
- 
+         `infer_steps` while weights and X^(0) remain fixed.
+      2. Learning: update all weights (and biases, if enabled) for
+         `T_learn` steps while latents remain fixed.
+
     For classification, labels are converted to one-hot vectors by default.
-    For regression, pass ``target_transform=None`` and supply continuous
+    For regression, pass `target_transform=None` and supply continuous
     targets directly from the DataLoader (or provide a custom transform).
- 
+
+    Bias gradient rule
+    ------------------
+    When a PCLayer has `use_bias=True`, the bias gradient for layer l is
+    the mean of the gain-modulated errors:
+        dF/db^(l) = -mean_batch(H^(l))
+    This is the exact analogue of the backprop bias gradient.
+
     Args:
         model: The PCNetwork to train.
         data_loader: Yields (input, target) batches.
@@ -42,13 +49,13 @@ def train_pcn(
         eta_learn: Step size for weight updates.
         infer_steps: Number of inference steps per batch.
         T_learn: Number of learning steps per batch.
-        device: Device to run training on.
         target_transform: Optional callable applied to the raw target batch
             before computing the supervised error. Defaults to one-hot
-            encoding with ``model.readout.out_features`` classes, which is
+            encoding with `model.readout.out_features` classes, which is
             the correct behaviour for classification. Pass the identity
-            (``lambda y: y``) or any other transform for regression.
- 
+            (`lambda y: y`) or any other transform for regression.
+        device: Device to run training on.
+
     Returns:
         energy_history: Nested list [epoch][batch][step] of batch-averaged
             total energy values (latent + supervised).
@@ -72,6 +79,9 @@ def train_pcn(
 
             inputs_latents = [x_batch] + model.init_latents(B, device)
             weights = [layer.W for layer in model.layers] + [model.readout.weight]
+            biases = [ # allowed to be an empty list
+                layer.bias for layer in model.layers if layer.use_bias
+            ]
 
             batch_energies, batch_supervised_energies = [], []
 
@@ -92,7 +102,10 @@ def train_pcn(
             with torch.no_grad(), autocast(device_type="cuda"):
                 for _ in range(infer_steps):
                     for l in range(1, model.L + 1):
-                        grad_Xl = errors_extended[l] - gain_modulated_errors[l - 1] @ weights[l - 1]
+                        grad_Xl = (
+                            errors_extended[l]
+                            - gain_modulated_errors[l - 1] @ weights[l - 1]
+                        )
                         inputs_latents[l] -= eta_infer * grad_Xl
 
                     errors, gain_modulated_errors = model.compute_errors(inputs_latents)
@@ -101,7 +114,9 @@ def train_pcn(
                     eps_L = eps_sup @ weights[-1]
                     errors_extended = errors + [eps_L]
 
-                    batch_supervised_energies.append(0.5 * eps_sup.pow(2).sum().item() / B)
+                    batch_supervised_energies.append(
+                        0.5 * eps_sup.pow(2).sum().item() / B
+                    )
                     batch_energies.append(
                         0.5 * sum(e.pow(2).sum().item() for e in errors) / B
                         + batch_supervised_energies[-1]
@@ -110,11 +125,25 @@ def train_pcn(
             # Learning phase
             with torch.no_grad():
                 for _ in range(T_learn):
+                    # Weight updates
                     for l in range(model.L):
-                        grad_Wl = -(gain_modulated_errors[l].T @ inputs_latents[l + 1]) / B
+                        grad_Wl = (
+                            -(gain_modulated_errors[l].T @ inputs_latents[l + 1]) / B
+                        )
                         weights[l] -= eta_learn * grad_Wl
+
+                        # Bias update: dF/db^(l) = -mean_batch(H^(l))
+                        if model.layers[l].use_bias:
+                            grad_bl = -gain_modulated_errors[l].mean(dim=0)
+                            model.layers[l].bias -= eta_learn * grad_bl
+
                     grad_Wout = eps_sup.T @ inputs_latents[-1] / B
                     weights[-1] -= eta_learn * grad_Wout
+
+                    # Readout bias update
+                    if model.readout.bias is not None:
+                        grad_b_out = eps_sup.mean(dim=0)
+                        model.readout.bias -= eta_learn * grad_b_out
 
                     errors, gain_modulated_errors = model.compute_errors(inputs_latents)
                     y_hat = model.readout(inputs_latents[-1])
@@ -133,6 +162,7 @@ def train_pcn(
 
     return energy_history, supervised_energy_history
 
+
 @torch.no_grad()
 def _run_inference(
     model: PCNetwork,
@@ -142,11 +172,11 @@ def _run_inference(
     eta_infer: float,
 ) -> list[torch.Tensor]:
     """Run the latent inference loop for a single batch.
- 
+
     Iteratively minimises the free energy with respect to the latent
     variables X^(1), ..., X^(L) while keeping weights fixed. Both
     classification and regression evaluation share this procedure.
- 
+
     Args:
         model: A PCNetwork in eval mode.
         x_batch: Input activations, shape (B, d_0). Already on device.
@@ -155,7 +185,7 @@ def _run_inference(
             regression they are raw continuous targets.
         infer_steps: Number of gradient steps on the latents.
         eta_infer: Step size for latent updates.
- 
+
     Returns:
         inputs_latents: [X^(0), X^(1), ..., X^(L)] after inference,
             shapes [(B, d_0), ..., (B, d_L)].
@@ -163,7 +193,7 @@ def _run_inference(
     B = x_batch.size(0)
     inputs_latents = [x_batch] + model.init_latents(B, x_batch.device)
     weights = [layer.W for layer in model.layers] + [model.readout.weight]
- 
+
     with autocast(device_type="cuda"):
         for _ in range(infer_steps):
             errors, gain_modulated_errors = model.compute_errors(inputs_latents)
@@ -171,9 +201,12 @@ def _run_inference(
             eps_sup = y_hat - y_onehot
             eps_L = eps_sup @ weights[-1]
             errors_extended = errors + [eps_L]
- 
+
             for l in range(1, model.L + 1):
-                grad_Xl = errors_extended[l] - gain_modulated_errors[l - 1] @ weights[l - 1]
+                grad_Xl = (
+                    errors_extended[l]
+                    - gain_modulated_errors[l - 1] @ weights[l - 1]
+                )
                 inputs_latents[l] -= eta_infer * grad_Xl
 
     return inputs_latents
