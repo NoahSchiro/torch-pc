@@ -175,10 +175,40 @@ def _run_inference(
             for l in range(1, model.L + 1):
                 grad_Xl = errors_extended[l] - gain_modulated_errors[l - 1] @ weights[l - 1]
                 inputs_latents[l] -= eta_infer * grad_Xl
- 
+
     return inputs_latents
- 
- 
+
+
+@torch.no_grad()
+def _run_inference_unsupervised(
+    model: PCNetwork,
+    x_batch: torch.Tensor,
+    infer_steps: int,
+    eta_infer: float,
+) -> list[torch.Tensor]:
+    """Inference at test time: no label signal
+
+    Latents are updated to minimise the layerwise prediction errors
+    (free energy) with the input clamped at X^(0). The supervised
+    error term is omitted entirely so no label information is used.
+    """
+    B = x_batch.size(0)
+    inputs_latents = [x_batch] + model.init_latents(B, x_batch.device)
+    weights = [layer.W for layer in model.layers]
+    
+    for _ in range(infer_steps):
+        errors, gain_modulated_errors = model.compute_errors(inputs_latents)
+
+        for l in range(1, model.L + 1):
+            if l < model.L:
+                grad_Xl = errors[l] - gain_modulated_errors[l - 1] @ weights[l - 1]
+            else:
+                grad_Xl = -gain_modulated_errors[l - 1] @ weights[l - 1]
+            inputs_latents[l] -= eta_infer * grad_Xl
+
+    return inputs_latents
+
+
 @torch.no_grad()
 def test_pcn_classify(
     model: PCNetwork,
@@ -188,10 +218,10 @@ def test_pcn_classify(
     device: str | torch.device = "cuda",
 ) -> tuple[float, float]:
     """Evaluate a PCNetwork on a classification dataset.
- 
+
     Runs the inference procedure then computes Top-1 and Top-3 accuracy
     from the readout layer.
- 
+
     Args:
         model: Trained PCNetwork.
         data_loader: Yields (input, label) batches where labels are integer
@@ -199,31 +229,31 @@ def test_pcn_classify(
         infer_steps: Number of inference steps per batch.
         eta_infer: Step size for latent variable updates.
         device: Device to run evaluation on.
- 
+
     Returns:
         top1_acc: Top-1 accuracy in [0, 1].
         top3_acc: Top-3 accuracy in [0, 1].
     """
     model.to(device).eval()
     total, top1_correct, top3_correct = 0, 0, 0
- 
+
     for x_batch, y_batch in tqdm(data_loader):
         B = x_batch.size(0)
         total += B
         x_batch = x_batch.view(B, model.dims[0]).to(device)
         y_labels = y_batch.to(device)
         y_onehot = F.one_hot(y_labels, num_classes=model.readout.out_features).float()
- 
-        inputs_latents = _run_inference(model, x_batch, y_onehot, infer_steps, eta_infer)
- 
+
+        inputs_latents = _run_inference_unsupervised(model, x_batch, infer_steps, eta_infer)
+
         logits = model.readout(inputs_latents[-1])
         top1_correct += (logits.argmax(dim=1) == y_labels).sum().item()
         _, preds3 = logits.topk(3, dim=1)
         top3_correct += (preds3 == y_labels.unsqueeze(1)).any(dim=1).sum().item()
- 
+
     return top1_correct / total, top3_correct / total
- 
- 
+
+
 @torch.no_grad()
 def test_pcn_regress(
     model: PCNetwork,
@@ -233,11 +263,11 @@ def test_pcn_regress(
     device: str | torch.device = "cuda",
 ) -> tuple[float, float]:
     """Evaluate a PCNetwork on a regression dataset.
- 
+
     Runs the same latent inference procedure as classification evaluation,
     then computes MSE and MAE between the readout predictions and the
     continuous targets.
- 
+
     Args:
         model: Trained PCNetwork.
         data_loader: Yields (input, target) batches where targets are
@@ -245,7 +275,7 @@ def test_pcn_regress(
         infer_steps: Number of inference steps per batch.
         eta_infer: Step size for latent variable updates.
         device: Device to run evaluation on.
- 
+
     Returns:
         mse: Mean squared error across the full dataset.
         mae: Mean absolute error across the full dataset.
@@ -254,24 +284,22 @@ def test_pcn_regress(
     total = 0
     sum_sq_err = 0.0
     sum_abs_err = 0.0
- 
+
     for x_batch, y_batch in tqdm(data_loader):
         B = x_batch.size(0)
         total += B
         x_batch = x_batch.view(B, model.dims[0]).to(device)
         y_batch = y_batch.float().to(device)
- 
-        # Ensure targets are (B, output_dim) for a consistent supervised signal
+
         if y_batch.dim() == 1:
             y_batch = y_batch.unsqueeze(1)
- 
-        inputs_latents = _run_inference(model, x_batch, y_batch, infer_steps, eta_infer)
- 
+
+        inputs_latents = _run_inference_unsupervised(model, x_batch, infer_steps, eta_infer)
+
         preds = model.readout(inputs_latents[-1])
         residuals = preds - y_batch
         sum_sq_err += residuals.pow(2).sum().item()
         sum_abs_err += residuals.abs().sum().item()
- 
-    # Normalise over total number of (sample, output) pairs
+
     n = total * model.readout.out_features
     return sum_sq_err / n, sum_abs_err / n
