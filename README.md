@@ -12,3 +12,5 @@ Currently set up for simple supervised classification tasks. See `examples/cifar
 ## General TODO:
 - [x] Integrate save and load mechanism into `PCNetwork`
 - [x] Models trained on backprop should be convertible to PC and vice versa
+- [ ] Replace standard gradient decent with Adam
+- [ ] Look into IPC (https://arxiv.org/pdf/2212.00720)

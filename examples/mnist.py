@@ -2,12 +2,14 @@
 Classic MNIST but with Predictive Coding Networks
 
 With a bit of hyperparameter tuning:
-  Top-1: 99.95%
-  Top-3: 100%
+  Top-1: 63.86%
+  Top-3: 84.82%
 """
 
 import os
+import random
 
+import numpy as np
 import torch
 from torch.utils.data import DataLoader 
 import torchvision
@@ -15,13 +17,22 @@ import torchvision.transforms as transforms
 
 from torch_pc import PCNetwork, train_pcn, test_pcn_classify
 
-BATCH_SIZE  = 256
-EPOCHS      = 1
-ETA_INFER   = 0.1
-ETA_LEARN   = 0.02
-INFER_STEPS = 80
-T_LEARN     = 3
-DEVICE      = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+SEED = 64
+
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+torch.cuda.manual_seed_all(SEED)
+
+BATCH_SIZE         = 256
+EPOCHS             = 3
+ETA_TRAIN_INFER_LR = 0.1
+ETA_TEST_INFER_LR  = 0.1
+ETA_LEARN          = 0.02
+TRAIN_INFER_STEPS  = 80
+TEST_INFER_STEPS   = 300
+T_LEARN            = 3
+DEVICE             = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Get data
 transform = transforms.Compose([
@@ -65,6 +76,8 @@ model = PCNetwork(
     # best: [784, 1000, 500, 100]
     dims=[784, 1000, 500, 100],
     output_dim=10,
+    activation_fn=torch.tanh,
+    activation_deriv=lambda a: 1 - torch.tanh(a)**2,
 )
 
 # Train
@@ -74,9 +87,9 @@ energy_history, supervised_energy_history = train_pcn(
     model=model,
     data_loader=train_dl,
     num_epochs=EPOCHS,
-    eta_infer=ETA_INFER,
+    eta_infer=ETA_TRAIN_INFER_LR,
     eta_learn=ETA_LEARN,
-    infer_steps=INFER_STEPS,
+    infer_steps=TRAIN_INFER_STEPS,
     T_learn=T_LEARN,
     device=DEVICE,
 )
@@ -86,8 +99,8 @@ print("Training finished.")
 acc1, acc3 = test_pcn_classify(
     model=model,
     data_loader=test_dl,
-    infer_steps=INFER_STEPS,
-    eta_infer=ETA_INFER,
+    infer_steps=TEST_INFER_STEPS,
+    eta_infer=ETA_TEST_INFER_LR,
     device=DEVICE,
 )
 print(f"Test Top-1 Accuracy: {acc1 * 100:.2f}%")

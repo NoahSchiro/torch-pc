@@ -5,22 +5,31 @@ Given a scalar input x sampled uniformly from [0, 2*pi],
 predict sin(x).
 
 Experimentally, I was able to get:
-  MSE: 0.0010
-  MAE: 0.0244
+  MSE: 0.585211
+  MAE: 0.623705
 with the hyperparameters below.
 """
 import os
+import random
 
+import numpy as np
 import torch
 from torch.utils.data import DataLoader, TensorDataset
 from torch_pc import PCNetwork, train_pcn, test_pcn_regress
 
+SEED = 64
+
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+torch.cuda.manual_seed_all(SEED)
+
 # Hyperparameters
 BATCH_SIZE  = 512 
-EPOCHS      = 1 
+EPOCHS      = 3
 ETA_INFER   = 0.1
 ETA_LEARN   = 0.02
-INFER_STEPS = 100
+INFER_STEPS = 200
 T_LEARN     = 5
 DEVICE      = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
