@@ -164,55 +164,6 @@ def train_pcn(
 
 
 @torch.no_grad()
-def _run_inference(
-    model: PCNetwork,
-    x_batch: torch.Tensor,
-    y_onehot: torch.Tensor,
-    infer_steps: int,
-    eta_infer: float,
-) -> list[torch.Tensor]:
-    """Run the latent inference loop for a single batch.
-
-    Iteratively minimises the free energy with respect to the latent
-    variables X^(1), ..., X^(L) while keeping weights fixed. Both
-    classification and regression evaluation share this procedure.
-
-    Args:
-        model: A PCNetwork in eval mode.
-        x_batch: Input activations, shape (B, d_0). Already on device.
-        y_onehot: Supervised targets, shape (B, output_dim). Already on
-            device. For classification these are one-hot vectors; for
-            regression they are raw continuous targets.
-        infer_steps: Number of gradient steps on the latents.
-        eta_infer: Step size for latent updates.
-
-    Returns:
-        inputs_latents: [X^(0), X^(1), ..., X^(L)] after inference,
-            shapes [(B, d_0), ..., (B, d_L)].
-    """
-    B = x_batch.size(0)
-    inputs_latents = [x_batch] + model.init_latents(B, x_batch.device)
-    weights = [layer.W for layer in model.layers] + [model.readout.weight]
-
-    with autocast(device_type="cuda"):
-        for _ in range(infer_steps):
-            errors, gain_modulated_errors = model.compute_errors(inputs_latents)
-            y_hat = model.readout(inputs_latents[-1])
-            eps_sup = y_hat - y_onehot
-            eps_L = eps_sup @ weights[-1]
-            errors_extended = errors + [eps_L]
-
-            for l in range(1, model.L + 1):
-                grad_Xl = (
-                    errors_extended[l]
-                    - gain_modulated_errors[l - 1] @ weights[l - 1]
-                )
-                inputs_latents[l] -= eta_infer * grad_Xl
-
-    return inputs_latents
-
-
-@torch.no_grad()
 def _run_inference_unsupervised(
     model: PCNetwork,
     x_batch: torch.Tensor,
