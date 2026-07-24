@@ -1,9 +1,13 @@
 [project]
 name = "torch-pc"
 version = "0.1.0"
-description = "Add your description here"
+authors = [
+    { name="Noah Schiro", email="noahschiro@rocketmail.com" },
+]
+description = "A torch-based predictive coding library"
 readme = "README.md"
 requires-python = ">=3.10"
+license = "MIT"
 dependencies = [
     "torch>=2.0",
     "torchvision>=0.21.0",
@@ -17,9 +21,9 @@ url = "https://download.pytorch.org/whl/cu124"
 explicit = true
 
 [tool.uv.sources]
-torch = { index = "pytorch-cu124" }
+torch       = { index = "pytorch-cu124" }
 torchvision = { index = "pytorch-cu124" }
-torchaudio = { index = "pytorch-cu124" }
+torchaudio  = { index = "pytorch-cu124" }
 
 [tool.setuptools]
 packages = ["torch_pc"]
